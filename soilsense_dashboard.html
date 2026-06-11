@@ -1,0 +1,752 @@
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SoilSense — Soil Temperature Dashboard</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#181c24;--bg3:#1e2330;--bg4:#252b3b;
+  --border:#2e3547;--border2:#3a4460;
+  --text:#e8eaf0;--text2:#8b93a8;--text3:#5a6175;
+  --blue:#378ADD;--green:#1D9E75;--orange:#D85A30;--purple:#7F77DD;
+  --amber:#BA7517;--pink:#D4537E;--lime:#639922;--red:#E24B4A;
+  --teal:#185FA5;--dkgreen:#0F6E56;--brown:#993C1D;--violet:#533AB7;
+  --radius:8px;--radius-lg:12px;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+/* Layout */
+#app{display:flex;flex-direction:column;height:100vh}
+#header{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;flex-shrink:0}
+#body{display:flex;flex:1;overflow:hidden}
+#sidebar{width:210px;min-width:210px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:14px 10px;flex-shrink:0}
+#main{flex:1;overflow-y:auto;padding:20px}
+/* Header */
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff}
+.logo-title{font-weight:600;font-size:15px}
+.logo-sub{font-size:11px;color:var(--text2)}
+.header-controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.btn-preset{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .15s}
+.btn-preset.active,.btn-preset:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+select{font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer}
+/* Sidebar */
+.sidebar-section{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px;padding-left:4px}
+.nav-btn{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;border-radius:6px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-size:12px;text-align:left;margin-bottom:2px;transition:all .12s}
+.nav-btn:hover{background:var(--bg4);color:var(--text)}
+.nav-btn.active{background:rgba(55,138,221,.15);color:var(--blue)}
+.nav-btn i{font-size:15px;flex-shrink:0}
+.sensor-row{display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;font-size:11px}
+.sensor-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.sensor-row label{cursor:pointer;flex:1;color:var(--text2)}
+.sensor-row input[type=checkbox]{cursor:pointer;accent-color:var(--blue)}
+.range-group{margin-bottom:4px}
+.range-group input[type=range]{width:100%;accent-color:var(--blue)}
+.range-val{font-size:11px;color:var(--text2);margin-bottom:3px}
+/* Upload area */
+#upload-area{border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:24px;text-align:center;cursor:pointer;transition:border-color .15s;margin-top:14px}
+#upload-area:hover,#upload-area.drag{border-color:var(--blue);background:rgba(55,138,221,.06)}
+#upload-area i{font-size:24px;color:var(--text3);display:block;margin-bottom:6px}
+#upload-area .up-title{font-size:12px;font-weight:500;margin-bottom:3px}
+#upload-area .up-sub{font-size:10px;color:var(--text3)}
+#upload-msg{font-size:10px;margin-top:6px;line-height:1.4}
+#file-input{display:none}
+/* Section header */
+.section-header{margin-bottom:16px}
+.section-header h2{font-size:15px;font-weight:500;margin-bottom:3px}
+.section-header p{font-size:12px;color:var(--text2)}
+/* Stat cards */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+.stat-card{background:var(--bg3);border-radius:var(--radius);padding:14px;min-width:0}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.stat-label i{font-size:13px}
+.stat-value{font-size:22px;font-weight:500}
+.stat-unit{font-size:12px;font-weight:400;margin-left:2px;color:var(--text2)}
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px}
+.card-title{font-size:13px;font-weight:500;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+/* Chart wrapper */
+.chart-wrap{position:relative;width:100%}
+/* Table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{border-bottom:1px solid var(--border)}
+th{text-align:left;padding:7px 10px;font-weight:500;color:var(--text2);white-space:nowrap}
+th.r,td.r{text-align:right}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:hover{background:var(--bg3)}
+td{padding:6px 10px;white-space:nowrap}
+td.mono{font-family:monospace;font-size:11px}
+.anomaly-row{background:rgba(226,75,74,.08)!important}
+/* Heatmap */
+#heatmap-container{overflow-x:auto}
+.hm-row{display:flex;align-items:center;gap:2px;margin-bottom:2px}
+.hm-label{width:34px;font-size:10px;color:var(--text2);text-align:right;padding-right:6px;flex-shrink:0}
+.hm-cell{width:10px;height:18px;border-radius:1px;cursor:default;transition:opacity .1s}
+.hm-cell:hover{opacity:.75}
+.hm-legend{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2);margin-top:10px}
+.hm-grad{width:120px;height:10px;border-radius:3px}
+/* Insights */
+.insight-item{display:flex;gap:8px;margin-bottom:8px;font-size:13px;line-height:1.5}
+.insight-num{color:var(--blue);font-weight:500;flex-shrink:0}
+.insight-text{color:var(--text2)}
+/* Comparison */
+.comp-controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.comp-controls label{font-size:12px;color:var(--text2)}
+/* Pagination */
+.pagination{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-top:1px solid var(--border);font-size:12px;color:var(--text2)}
+.page-btn{padding:3px 8px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer}
+.page-btn:disabled{opacity:.35;cursor:default}
+/* Search bar */
+.search-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.search-row input{flex:1;min-width:160px;font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text)}
+.btn-export{font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:5px}
+.btn-export:hover{background:var(--bg4);color:var(--text)}
+/* Legend row */
+.legend-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px;font-size:11px;color:var(--text2)}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+/* Badge */
+.badge{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500}
+.badge-red{background:rgba(226,75,74,.15);color:#f07070}
+.badge-green{background:rgba(29,158,117,.15);color:#3dcf9f}
+/* Depth bar */
+.depth-bar-wrap{height:8px;background:var(--bg4);border-radius:4px;overflow:hidden;margin-top:4px}
+.depth-bar{height:100%;border-radius:4px;transition:width .3s}
+/* Tabs hidden */
+.tab-content{display:none}
+.tab-content.active{display:block}
+/* Responsive */
+@media(max-width:700px){
+  #sidebar{display:none}
+  #main{padding:12px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- HEADER -->
+  <div id="header">
+    <div class="logo">
+      <div class="logo-icon"><i class="ti ti-layers-intersect"></i></div>
+      <div><div class="logo-title">SoilSense</div><div class="logo-sub">Underground temperature analytics</div></div>
+    </div>
+    <div class="header-controls">
+      <button class="btn-preset" data-days="1">Last 24h</button>
+      <button class="btn-preset active" data-days="7">Last 7d</button>
+      <button class="btn-preset" data-days="30">Last 30d</button>
+      <button class="btn-preset" data-days="0">All</button>
+      <select id="interval-sel">
+        <option value="0">Raw data</option>
+        <option value="5">5 min avg</option>
+        <option value="10">10 min avg</option>
+        <option value="15">15 min avg</option>
+        <option value="30">30 min avg</option>
+        <option value="60" selected>1 hr avg</option>
+        <option value="180">3 hr avg</option>
+        <option value="360">6 hr avg</option>
+        <option value="720">12 hr avg</option>
+        <option value="1440">24 hr avg</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="body">
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <div class="sidebar-section">Navigation</div>
+      <button class="nav-btn active" data-tab="overview"><i class="ti ti-dashboard"></i>Overview</button>
+      <button class="nav-btn" data-tab="trends"><i class="ti ti-chart-line"></i>Trends</button>
+      <button class="nav-btn" data-tab="depth"><i class="ti ti-wave-sine"></i>Depth</button>
+      <button class="nav-btn" data-tab="heatmap"><i class="ti ti-layout-grid"></i>Heatmap</button>
+      <button class="nav-btn" data-tab="stats"><i class="ti ti-chart-bar"></i>Stats</button>
+      <button class="nav-btn" data-tab="compare"><i class="ti ti-arrows-diff"></i>Compare</button>
+      <button class="nav-btn" data-tab="anomalies"><i class="ti ti-alert-triangle"></i>Anomalies</button>
+      <button class="nav-btn" data-tab="data"><i class="ti ti-table"></i>Data</button>
+
+      <div class="sidebar-section">Sensors</div>
+      <div style="display:flex;gap:4px;margin-bottom:8px">
+        <button id="btn-all" style="font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid var(--border2);background:transparent;cursor:pointer;color:var(--text2)">All</button>
+        <button id="btn-none" style="font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid var(--border2);background:transparent;cursor:pointer;color:var(--text2)">None</button>
+      </div>
+      <div id="sensor-checkboxes"></div>
+
+      <div class="sidebar-section">Depth range</div>
+      <div class="range-group">
+        <div class="range-val">Min: <span id="depth-min-val">0</span> ft</div>
+        <input type="range" id="depth-min" min="0" max="6" step="0.5" value="0" class="range-group"/>
+      </div>
+      <div class="range-group">
+        <div class="range-val">Max: <span id="depth-max-val">6</span> ft</div>
+        <input type="range" id="depth-max" min="0" max="6" step="0.5" value="6"/>
+      </div>
+
+      <input type="file" id="file-input" accept=".csv"/>
+      <div id="upload-area">
+        <i class="ti ti-file-upload"></i>
+        <div class="up-title">Drop CSV or click</div>
+        <div class="up-sub">Timestamp, Sensor_ID, Depth_ft, Temperature</div>
+      </div>
+      <div id="upload-msg"></div>
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+
+      <!-- OVERVIEW -->
+      <div id="tab-overview" class="tab-content active">
+        <div class="section-header"><h2>Dashboard overview</h2><p>Summary statistics for selected period and sensors</p></div>
+        <div class="stat-grid" id="stat-cards"></div>
+        <div class="card">
+          <div class="card-title"><i class="ti ti-chart-line" style="color:var(--blue)"></i>Temperature over time — all sensors</div>
+          <div id="legend-overview" class="legend-row"></div>
+          <div class="chart-wrap" style="height:270px"><canvas id="chart-overview" role="img" aria-label="Multi-sensor temperature line chart over time">Temperature over time for all active sensors.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="ti ti-bulb" style="color:var(--amber)"></i>AI insights</div>
+          <div id="insights-list"></div>
+        </div>
+        <div id="upload-area-main" style="border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:32px;text-align:center;cursor:pointer;transition:border-color .15s;margin-top:4px">
+          <i class="ti ti-file-upload" style="font-size:28px;color:var(--text3);display:block;margin-bottom:8px"></i>
+          <div style="font-size:14px;font-weight:500;margin-bottom:4px">Drop a CSV file or click to browse</div>
+          <div style="font-size:12px;color:var(--text3)">Expected columns: Timestamp, Sensor_ID, Depth_ft, Temperature</div>
+        </div>
+      </div>
+
+      <!-- TRENDS -->
+      <div id="tab-trends" class="tab-content">
+        <div class="section-header"><h2>Temperature trends</h2><p>Interactive multi-sensor line chart</p></div>
+        <div class="card">
+          <div id="legend-trends" class="legend-row"></div>
+          <div class="chart-wrap" style="height:350px"><canvas id="chart-trends" role="img" aria-label="Temperature trends for all sensors">Sensor temperature trends over selected time period.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Average temperature by sensor</div>
+          <div class="chart-wrap" style="height:320px"><canvas id="chart-avg-bar" role="img" aria-label="Average temperature bar chart per sensor">Average temperature per sensor.</canvas></div>
+        </div>
+      </div>
+
+      <!-- DEPTH -->
+      <div id="tab-depth" class="tab-content">
+        <div class="section-header"><h2>Depth profile</h2><p>Temperature distribution across soil layers</p></div>
+        <div class="card">
+          <div class="chart-wrap" style="height:360px"><canvas id="chart-depth" role="img" aria-label="Depth profile scatter chart showing temperature vs depth">Temperature at each depth for all sensors.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Readings by depth</div>
+          <div class="tbl-wrap"><table id="depth-table">
+            <thead><tr><th>Depth</th><th>Sensor</th><th>Last temp</th><th class="r">Avg</th><th class="r">Max</th><th class="r">Min</th></tr></thead>
+            <tbody id="depth-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- HEATMAP -->
+      <div id="tab-heatmap" class="tab-content">
+        <div class="section-header"><h2>Temperature heatmap</h2><p>Temperature across depths over time (last 48 time slots)</p></div>
+        <div class="card">
+          <div id="heatmap-container"></div>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div id="tab-stats" class="tab-content">
+        <div class="section-header"><h2>Statistical analysis</h2><p>Per-sensor averages, extremes, standard deviation, and median</p></div>
+        <div class="card">
+          <div class="tbl-wrap"><table id="stats-table">
+            <thead><tr><th>Sensor</th><th class="r">Depth</th><th class="r">Avg</th><th class="r">Max</th><th class="r">Min</th><th class="r">Median</th><th class="r">Std Dev</th></tr></thead>
+            <tbody id="stats-tbody"></tbody>
+          </table></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Min / Avg / Max by sensor</div>
+          <div class="chart-wrap" style="height:340px"><canvas id="chart-minmaxavg" role="img" aria-label="Grouped bar chart showing min, avg, max temperature per sensor">Min, average, and max temperature for each sensor.</canvas></div>
+        </div>
+      </div>
+
+      <!-- COMPARE -->
+      <div id="tab-compare" class="tab-content">
+        <div class="section-header"><h2>Sensor comparison</h2><p>Compare two sensors side by side</p></div>
+        <div class="comp-controls">
+          <div style="display:flex;align-items:center;gap:8px"><label>Sensor A</label><select id="comp-a"></select></div>
+          <span style="color:var(--text3)">vs</span>
+          <div style="display:flex;align-items:center;gap:8px"><label>Sensor B</label><select id="comp-b"></select></div>
+          <button id="btn-compare" style="font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--border2);background:var(--blue);color:#fff;cursor:pointer">Compare</button>
+        </div>
+        <div class="stat-grid" id="comp-stats"></div>
+        <div class="card">
+          <div class="card-title" id="comp-chart-title">Sensor comparison — temperature over time</div>
+          <div id="legend-compare" class="legend-row"></div>
+          <div class="chart-wrap" style="height:260px"><canvas id="chart-compare" role="img" aria-label="Comparison line chart of two sensors">Temperature comparison between two selected sensors.</canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="comp-diff-title">Temperature difference</div>
+          <div class="chart-wrap" style="height:200px"><canvas id="chart-diff" role="img" aria-label="Bar chart showing temperature difference between two sensors">Temperature difference between selected sensors.</canvas></div>
+        </div>
+      </div>
+
+      <!-- ANOMALIES -->
+      <div id="tab-anomalies" class="tab-content">
+        <div class="section-header"><h2>Anomaly detection</h2><p>Readings more than 3 standard deviations from the sensor mean</p></div>
+        <div class="stat-grid" id="anomaly-stats"></div>
+        <div class="card" id="anomaly-content"></div>
+      </div>
+
+      <!-- DATA -->
+      <div id="tab-data" class="tab-content">
+        <div class="section-header"><h2 id="data-title">Data table</h2><p id="data-sub">All filtered readings</p></div>
+        <div class="search-row">
+          <input type="text" id="table-search" placeholder="Search readings…"/>
+          <button class="btn-export" id="btn-export-csv"><i class="ti ti-download"></i>Export CSV</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="tbl-wrap">
+            <table><thead><tr><th>Timestamp</th><th>Sensor</th><th>Depth</th><th class="r">Temperature</th><th>Anomaly</th></tr></thead>
+            <tbody id="data-tbody"></tbody></table>
+          </div>
+          <div class="pagination">
+            <span id="data-count">0 rows</span>
+            <div style="display:flex;gap:4px;align-items:center">
+              <button class="page-btn" id="btn-prev">&#8249;</button>
+              <span id="page-info">Page 1 of 1</span>
+              <button class="page-btn" id="btn-next">&#8250;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /body -->
+</div>
+
+<script>
+const SENSOR_COLORS=["#378ADD","#1D9E75","#D85A30","#7F77DD","#BA7517","#D4537E","#639922","#E24B4A","#185FA5","#0F6E56","#993C1D","#533AB7"];
+let rawData=[],filteredData=[],sensorList=[],activeSensors=new Set(),datePreset=7,intervalMin=60,depthMin=0,depthMax=6;
+let tableSearch="",tablePage=0;const PAGE_SIZE=20;
+let compA="S1",compB="S4";
+const charts={};
+// ── helpers ──
+const avg=a=>a.length?a.reduce((x,c)=>x+c,0)/a.length:0;
+const stdv=a=>{const m=avg(a);return Math.sqrt(a.reduce((x,c)=>x+(c-m)**2,0)/a.length)};
+function median(a){const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];}
+
+// ── demo data ──
+function generateDemo(){
+  const sensors=Array.from({length:12},(_,i)=>({id:`S${i+1}`,depth:(i+1)*0.5}));
+  const rows=[];const now=Date.now();
+  for(let m=0;m<2880;m++){
+    const ts=new Date(now-m*5*60*1000);
+    const tsStr=ts.toISOString().slice(0,16).replace("T"," ");
+    const hour=ts.getHours();const dc=Math.sin((hour-6)*Math.PI/12)*4;
+    sensors.forEach(s=>{
+      const dd=Math.max(0,1-s.depth*0.18);
+      const base=22+s.depth*1.2;
+      const noise=(Math.random()-.5)*1.2;
+      const an=Math.random()<.005?(Math.random()-.5)*8:0;
+      rows.push({Timestamp:tsStr,Sensor_ID:s.id,Depth_ft:s.depth,Temperature:parseFloat((base+dc*dd+noise+an).toFixed(2)),ts:ts.getTime()});
+    });
+  }
+  return rows;
+}
+function parseCSV(text){
+  const lines=text.trim().split("\n");
+  const header=lines[0].split(",").map(h=>h.trim());
+  return lines.slice(1).map(line=>{
+    const vals=line.split(",").map(v=>v.trim());const obj={};
+    header.forEach((h,i)=>obj[h]=vals[i]);
+    obj.ts=new Date(obj.Timestamp).getTime();obj.Depth_ft=parseFloat(obj.Depth_ft);obj.Temperature=parseFloat(obj.Temperature);
+    return obj;
+  }).filter(r=>!isNaN(r.ts)&&!isNaN(r.Temperature));
+}
+function aggregate(data,intv){
+  if(!intv)return data;
+  const b={};
+  data.forEach(row=>{
+    const bt=Math.floor(row.ts/(intv*60000))*(intv*60000);
+    const key=`${row.Sensor_ID}__${bt}`;
+    if(!b[key])b[key]={...row,ts:bt,Timestamp:new Date(bt).toISOString().slice(0,16).replace("T"," "),_t:[]};
+    b[key]._t.push(row.Temperature);
+  });
+  return Object.values(b).map(x=>{x.Temperature=parseFloat(avg(x._t).toFixed(2));delete x._t;return x;}).sort((a,c)=>a.ts-c.ts);
+}
+function detectAnomalies(data){
+  const bs={};
+  data.forEach(r=>{if(!bs[r.Sensor_ID])bs[r.Sensor_ID]=[];bs[r.Sensor_ID].push(r.Temperature);});
+  const st={};
+  Object.entries(bs).forEach(([sid,temps])=>{const m=avg(temps);st[sid]={mean:m,std:stdv(temps)};});
+  return data.map(r=>{const {mean,std}=st[r.Sensor_ID]||{mean:0,std:1};return{...r,anomaly:Math.abs(r.Temperature-mean)>3*std};});
+}
+function sensorStats(data){
+  const bs={};
+  data.forEach(r=>{if(!bs[r.Sensor_ID])bs[r.Sensor_ID]={temps:[],depth:r.Depth_ft,id:r.Sensor_ID};bs[r.Sensor_ID].temps.push(r.Temperature);});
+  return Object.values(bs).map(s=>{
+    const t=s.temps;
+    return{...s,avg:parseFloat(avg(t).toFixed(2)),max:parseFloat(Math.max(...t).toFixed(2)),min:parseFloat(Math.min(...t).toFixed(2)),std:parseFloat(stdv(t).toFixed(2)),median:parseFloat(median(t).toFixed(2))};
+  }).sort((a,b)=>parseInt(a.id.replace(/\D/g,""))-parseInt(b.id.replace(/\D/g,"")));
+}
+function getInsights(data){
+  if(!data.length)return[];
+  const bs={};data.forEach(r=>{if(!bs[r.Sensor_ID])bs[r.Sensor_ID]={temps:[],depth:r.Depth_ft};bs[r.Sensor_ID].temps.push(r.Temperature);});
+  let maxM=-Infinity,maxS="",minS2=Infinity,stableS="";
+  Object.entries(bs).forEach(([sid,{temps}])=>{
+    const m=avg(temps);const s=stdv(temps);
+    if(m>maxM){maxM=m;maxS=sid;}if(s<minS2){minS2=s;stableS=sid;}
+  });
+  const out=[`${maxS} recorded the highest average temperature (${maxM.toFixed(1)}°C) during the selected period.`,
+    `${stableS} shows the most stable readings with lowest variation (σ=${minS2.toFixed(2)}°C).`];
+  const deep=Object.entries(bs).filter(([,{depth}])=>depth>=3);
+  if(deep.length){const dm=deep.map(([,{temps}])=>avg(temps));out.push(`Sensors at 3 ft+ maintain a stable avg of ${avg(dm).toFixed(1)}°C — showing thermal mass insulation.`);}
+  const ac=data.filter(r=>r.anomaly).length;if(ac>0)out.push(`${ac} anomalous readings detected — review the Anomalies tab.`);
+  return out;
+}
+
+// ── chart helpers ──
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function buildChartData(){
+  const tsMap={};
+  filteredData.forEach(r=>{if(!tsMap[r.Timestamp])tsMap[r.Timestamp]={ts:r.ts,label:r.Timestamp};tsMap[r.Timestamp][r.Sensor_ID]=r.Temperature;});
+  return Object.values(tsMap).sort((a,b)=>a.ts-b.ts);
+}
+function colorAlpha(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;}
+const tickCfg={color:"#8b93a8",font:{size:10}};
+const gridCfg={color:"rgba(46,53,71,.6)"};
+
+// ── load data ──
+function loadData(rows){
+  rawData=detectAnomalies(rows);
+  sensorList=[...new Set(rows.map(r=>r.Sensor_ID))].sort((a,b)=>parseInt(a.replace(/\D/g,""))-parseInt(b.replace(/\D/g,"")));
+  activeSensors=new Set(sensorList);
+  compA=sensorList[0]||"S1";compB=sensorList[3]||sensorList[1]||"S2";
+  buildSidebarSensors();buildCompareSelects();
+  applyFilters();
+}
+function buildSidebarSensors(){
+  const el=document.getElementById("sensor-checkboxes");el.innerHTML="";
+  sensorList.forEach((s,i)=>{
+    const row=document.createElement("label");row.className="sensor-row";
+    row.innerHTML=`<input type="checkbox" checked data-sensor="${s}"><span class="sensor-dot" style="background:${SENSOR_COLORS[i%12]}"></span>${s} <span style="color:var(--text3);font-size:10px;margin-left:auto">(${(i+1)*.5}ft)</span>`;
+    row.querySelector("input").addEventListener("change",e=>{
+      if(e.target.checked)activeSensors.add(s);else activeSensors.delete(s);
+      applyFilters();
+    });
+    el.appendChild(row);
+  });
+}
+function buildCompareSelects(){
+  ["comp-a","comp-b"].forEach((id,idx)=>{
+    const sel=document.getElementById(id);sel.innerHTML="";
+    sensorList.forEach(s=>{const o=document.createElement("option");o.value=s;o.textContent=s;sel.appendChild(o);});
+    sel.value=idx===0?compA:compB;
+  });
+}
+function applyFilters(){
+  let d=rawData;
+  if(datePreset>0){const cut=Date.now()-datePreset*86400000;d=d.filter(r=>r.ts>=cut);}
+  d=d.filter(r=>activeSensors.has(r.Sensor_ID));
+  d=d.filter(r=>r.Depth_ft>=depthMin&&r.Depth_ft<=depthMax);
+  filteredData=aggregate(d,intervalMin);
+  renderAll();
+}
+
+// ── RENDER ──
+function renderAll(){
+  renderStatCards();
+  renderOverviewChart();
+  renderInsights();
+  renderTrendsChart();
+  renderAvgBarChart();
+  renderDepthChart();
+  renderDepthTable();
+  renderHeatmap();
+  renderStatsTable();
+  renderMinMaxChart();
+  renderCompare();
+  renderAnomalies();
+  renderDataTable();
+}
+
+function renderStatCards(){
+  const temps=filteredData.map(r=>r.Temperature);
+  const cards=[
+    {label:"Active sensors",value:activeSensors.size,unit:"",icon:"ti-cpu",color:"var(--blue)"},
+    {label:"Total readings",value:filteredData.length.toLocaleString(),unit:"",icon:"ti-database"},
+    {label:"Highest temp",value:temps.length?Math.max(...temps).toFixed(1):"—",unit:"°C",icon:"ti-temperature-plus",color:"var(--orange)"},
+    {label:"Lowest temp",value:temps.length?Math.min(...temps).toFixed(1):"—",unit:"°C",icon:"ti-temperature-minus",color:"var(--blue)"},
+    {label:"Average temp",value:temps.length?avg(temps).toFixed(1):"—",unit:"°C",icon:"ti-chart-line"},
+    {label:"Temp range",value:temps.length?(Math.max(...temps)-Math.min(...temps)).toFixed(1):"—",unit:"°C",icon:"ti-arrows-vertical"},
+  ];
+  document.getElementById("stat-cards").innerHTML=cards.map(c=>`
+    <div class="stat-card">
+      <div class="stat-label"><i class="ti ${c.icon}"></i>${c.label}</div>
+      <div class="stat-value" style="color:${c.color||"var(--text)"}">${c.value}<span class="stat-unit">${c.unit}</span></div>
+    </div>`).join("");
+}
+
+function buildLegend(containerId){
+  const el=document.getElementById(containerId);if(!el)return;
+  el.innerHTML=sensorList.filter(s=>activeSensors.has(s)).map((s,i)=>
+    `<span class="legend-item"><span class="legend-dot" style="background:${SENSOR_COLORS[i%12]}"></span>${s}</span>`).join("");
+}
+
+function renderOverviewChart(){
+  destroyChart("overview");buildLegend("legend-overview");
+  const cd=buildChartData();
+  const activeSens=sensorList.filter(s=>activeSensors.has(s));
+  const labels=cd.map(r=>r.label);
+  const skip=Math.max(1,Math.floor(labels.length/40));
+  charts["overview"]=new Chart(document.getElementById("chart-overview"),{
+    type:"line",
+    data:{labels:labels,datasets:activeSens.map((s,i)=>({label:s,data:cd.map(r=>r[s]??null),borderColor:SENSOR_COLORS[i%12],borderWidth:1.5,pointRadius:0,tension:0.3,spanGaps:true}))},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{mode:"index",intersect:false,callbacks:{title:([i])=>i.label},bodyFont:{size:11}}},scales:{x:{ticks:{...tickCfg,maxTicksLimit:8,callback:(v,i)=>i%skip===0?new Date(cd[i]?.ts||0).toLocaleDateString("en",{month:"short",day:"numeric"}):null},grid:gridCfg},y:{ticks:{...tickCfg,callback:v=>v+"°C"},grid:gridCfg}}}
+  });
+}
+
+function renderTrendsChart(){
+  destroyChart("trends");buildLegend("legend-trends");
+  const cd=buildChartData();
+  const activeSens=sensorList.filter(s=>activeSensors.has(s));
+  charts["trends"]=new Chart(document.getElementById("chart-trends"),{
+    type:"line",
+    data:{labels:cd.map(r=>r.label),datasets:activeSens.map((s,i)=>({label:s,data:cd.map(r=>r[s]??null),borderColor:SENSOR_COLORS[i%12],borderWidth:1.5,pointRadius:0,tension:0.3,spanGaps:true}))},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{mode:"index",intersect:false,bodyFont:{size:11}}},scales:{x:{ticks:{...tickCfg,maxTicksLimit:10},grid:gridCfg},y:{ticks:{...tickCfg,callback:v=>v+"°C"},grid:gridCfg}}}
+  });
+}
+
+function renderAvgBarChart(){
+  destroyChart("avg-bar");
+  const st=sensorStats(filteredData);
+  charts["avg-bar"]=new Chart(document.getElementById("chart-avg-bar"),{
+    type:"bar",
+    data:{labels:st.map(s=>s.id),datasets:[{label:"Avg temp",data:st.map(s=>s.avg),backgroundColor:st.map((_,i)=>SENSOR_COLORS[i%12]),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)}°C`}}},scales:{x:{ticks:tickCfg,grid:{display:false}},y:{ticks:{...tickCfg,callback:v=>v+"°C"},grid:gridCfg}}}
+  });
+}
+
+function renderDepthChart(){
+  destroyChart("depth");
+  const latest={};
+  filteredData.forEach(r=>{if(!latest[r.Sensor_ID]||r.ts>latest[r.Sensor_ID].ts)latest[r.Sensor_ID]=r;});
+  const pts=Object.values(latest).sort((a,b)=>a.Depth_ft-b.Depth_ft);
+  charts["depth"]=new Chart(document.getElementById("chart-depth"),{
+    type:"scatter",
+    data:{datasets:[{label:"Sensors",data:pts.map(p=>({x:p.Temperature,y:p.Depth_ft,label:p.Sensor_ID})),pointBackgroundColor:pts.map(p=>{const i=sensorList.indexOf(p.Sensor_ID);return SENSOR_COLORS[i>=0?i:0];}),pointRadius:7,pointHoverRadius:9}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.label}: ${c.raw.x}°C @ ${c.raw.y}ft`}}},scales:{x:{title:{display:true,text:"Temperature (°C)",color:"#8b93a8",font:{size:11}},ticks:tickCfg,grid:gridCfg},y:{reverse:true,title:{display:true,text:"Depth (ft)",color:"#8b93a8",font:{size:11}},ticks:{...tickCfg,callback:v=>v+" ft"},grid:gridCfg}}}
+  });
+}
+
+function renderDepthTable(){
+  const st=sensorStats(filteredData);
+  const latest={};filteredData.forEach(r=>{if(!latest[r.Sensor_ID]||r.ts>latest[r.Sensor_ID].ts)latest[r.Sensor_ID]=r;});
+  document.getElementById("depth-tbody").innerHTML=st.map((s,i)=>`
+    <tr>
+      <td>${s.depth} ft</td>
+      <td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:${SENSOR_COLORS[i%12]};flex-shrink:0"></span>${s.id}</span></td>
+      <td>${latest[s.id]?.Temperature??"-"}°C</td>
+      <td class="r">${s.avg}°C</td>
+      <td class="r" style="color:#f07070">${s.max}°C</td>
+      <td class="r" style="color:#5bc4f0">${s.min}°C</td>
+    </tr>`).join("");
+}
+
+function renderHeatmap(){
+  const depths=[...new Set(filteredData.map(r=>r.Depth_ft))].sort((a,b)=>a-b);
+  const timeSlots=[...new Set(filteredData.map(r=>r.Timestamp))].sort().slice(-48);
+  const allT=filteredData.map(r=>r.Temperature);
+  const tMin=allT.length?Math.min(...allT):20,tMax=allT.length?Math.max(...allT):35;
+  const cellMap={};filteredData.filter(r=>timeSlots.includes(r.Timestamp)).forEach(r=>{cellMap[`${r.Depth_ft}__${r.Timestamp}`]=r.Temperature;});
+  function tc(t){const p=tMax>tMin?(t-tMin)/(tMax-tMin):.5;const r=Math.round(34+p*200),g=Math.round(180-p*130),b=Math.round(221-p*190);return`rgb(${r},${g},${b})`;}
+  const container=document.getElementById("heatmap-container");
+  if(!timeSlots.length){container.innerHTML='<div style="padding:40px;text-align:center;color:var(--text2);font-size:13px">No data for heatmap. Adjust filters.</div>';return;}
+  let html='<div style="font-size:11px;color:var(--text2);margin-bottom:6px">Depth ↓ &nbsp;|&nbsp; Time →</div>';
+  depths.forEach(d=>{
+    const cells=timeSlots.map((t,ti)=>{const v=cellMap[`${d}__${t}`];return v!==undefined?`<div class="hm-cell" title="${v}°C @ ${t}" style="background:${tc(v)}"></div>`:`<div class="hm-cell" style="background:var(--bg4)"></div>`;}).join("");
+    html+=`<div class="hm-row"><div class="hm-label">${d}ft</div><div style="display:flex;gap:1px;flex-wrap:nowrap">${cells}</div></div>`;
+  });
+  html+=`<div class="hm-legend"><span>${tMin.toFixed(1)}°C</span><div class="hm-grad" style="background:linear-gradient(to right,rgb(34,180,221),rgb(234,50,31))"></div><span>${tMax.toFixed(1)}°C</span></div>`;
+  container.innerHTML=html;
+}
+
+function renderStatsTable(){
+  const st=sensorStats(filteredData);
+  document.getElementById("stats-tbody").innerHTML=st.map((s,i)=>`
+    <tr>
+      <td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:${SENSOR_COLORS[i%12]};flex-shrink:0"></span>${s.id}</span></td>
+      <td class="r" style="color:var(--text2)">${s.depth} ft</td>
+      <td class="r" style="font-weight:500">${s.avg}°C</td>
+      <td class="r" style="color:#f07070">${s.max}°C</td>
+      <td class="r" style="color:#5bc4f0">${s.min}°C</td>
+      <td class="r">${s.median}°C</td>
+      <td class="r" style="color:var(--text2)">${s.std}</td>
+    </tr>`).join("");
+}
+
+function renderMinMaxChart(){
+  destroyChart("minmaxavg");
+  const st=sensorStats(filteredData);
+  charts["minmaxavg"]=new Chart(document.getElementById("chart-minmaxavg"),{
+    type:"bar",
+    data:{labels:st.map(s=>s.id),datasets:[
+      {label:"Min",data:st.map(s=>s.min),backgroundColor:"#185FA5",borderRadius:2},
+      {label:"Avg",data:st.map(s=>s.avg),backgroundColor:"#1D9E75",borderRadius:2},
+      {label:"Max",data:st.map(s=>s.max),backgroundColor:"#D85A30",borderRadius:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:"#8b93a8",font:{size:11}}}},scales:{x:{ticks:tickCfg,grid:{display:false}},y:{ticks:{...tickCfg,callback:v=>v+"°C"},grid:gridCfg}}}
+  });
+}
+
+function renderInsights(){
+  const ins=getInsights(filteredData);
+  document.getElementById("insights-list").innerHTML=ins.length?ins.map((t,i)=>`<div class="insight-item"><span class="insight-num">${i+1}.</span><span class="insight-text">${t}</span></div>`).join(""):'<div style="font-size:13px;color:var(--text2)">No data. Upload a CSV to generate insights.</div>';
+}
+
+function renderCompare(){
+  destroyChart("compare");destroyChart("diff");
+  const cd=filteredData.filter(r=>r.Sensor_ID===compA||r.Sensor_ID===compB);
+  const tsMap={};
+  cd.forEach(r=>{if(!tsMap[r.Timestamp])tsMap[r.Timestamp]={ts:r.ts,label:r.Timestamp};tsMap[r.Timestamp][r.Sensor_ID]=r.Temperature;});
+  const pts=Object.values(tsMap).sort((a,b)=>a.ts-b.ts).filter(r=>r[compA]!==undefined&&r[compB]!==undefined);
+  const diffs=pts.map(r=>parseFloat((r[compA]-r[compB]).toFixed(2)));
+  // correlation
+  const xs=pts.map(r=>r[compA]),ys=pts.map(r=>r[compB]);
+  let corr=0;
+  if(pts.length>1){const mx=avg(xs),my=avg(ys);const n=xs.reduce((a,x,i)=>a+(x-mx)*(ys[i]-my),0);const den=Math.sqrt(xs.reduce((a,x)=>a+(x-mx)**2,0)*ys.reduce((a,y)=>a+(y-my)**2,0));corr=den?parseFloat((n/den).toFixed(3)):0;}
+  const absDiffs=diffs.map(Math.abs);
+  document.getElementById("comp-stats").innerHTML=[
+    {label:"Correlation",value:corr,unit:"",color:Math.abs(corr)>.8?"var(--green)":Math.abs(corr)>.5?"var(--amber)":"var(--orange)"},
+    {label:"Similarity",value:Math.round(Math.abs(corr)*100)+"%",unit:""},
+    {label:"Avg gap",value:pts.length?avg(absDiffs).toFixed(2):"—",unit:"°C"},
+    {label:"Data points",value:pts.length.toLocaleString(),unit:""},
+  ].map(c=>`<div class="stat-card"><div class="stat-label">${c.label}</div><div class="stat-value" style="color:${c.color||"var(--text)"}">${c.value}<span class="stat-unit">${c.unit}</span></div></div>`).join("");
+  document.getElementById("comp-chart-title").textContent=`${compA} vs ${compB} — temperature over time`;
+  document.getElementById("comp-diff-title").textContent=`Temperature difference (${compA} − ${compB})`;
+  const iA=sensorList.indexOf(compA),iB=sensorList.indexOf(compB);
+  document.getElementById("legend-compare").innerHTML=`<span class="legend-item"><span class="legend-dot" style="background:${SENSOR_COLORS[iA>=0?iA:0]}"></span>${compA}</span><span class="legend-item"><span class="legend-dot" style="background:${SENSOR_COLORS[iB>=0?iB:0]}"></span>${compB}</span>`;
+  const labels=pts.map(r=>r.label);
+  charts["compare"]=new Chart(document.getElementById("chart-compare"),{
+    type:"line",
+    data:{labels,datasets:[
+      {label:compA,data:pts.map(r=>r[compA]),borderColor:SENSOR_COLORS[iA>=0?iA:0],borderWidth:2,pointRadius:0,spanGaps:true},
+      {label:compB,data:pts.map(r=>r[compB]),borderColor:SENSOR_COLORS[iB>=0?iB:0],borderWidth:2,pointRadius:0,spanGaps:true},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{mode:"index",intersect:false}},scales:{x:{ticks:{...tickCfg,maxTicksLimit:8},grid:gridCfg},y:{ticks:{...tickCfg,callback:v=>v+"°C"},grid:gridCfg}}}
+  });
+  const sliced=pts.slice(0,150);
+  charts["diff"]=new Chart(document.getElementById("chart-diff"),{
+    type:"bar",
+    data:{labels:sliced.map(r=>r.label),datasets:[{label:"Δ temp",data:sliced.map(r=>parseFloat((r[compA]-r[compB]).toFixed(2))),backgroundColor:sliced.map(r=>r[compA]>=r[compB]?"#D85A30":"#378ADD"),borderRadius:1}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`Δ ${c.parsed.y.toFixed(2)}°C`}}},scales:{x:{ticks:{...tickCfg,maxTicksLimit:8},grid:gridCfg},y:{ticks:{...tickCfg,callback:v=>v+"°C"},grid:gridCfg}}}
+  });
+}
+
+function renderAnomalies(){
+  const anoms=filteredData.filter(r=>r.anomaly).sort((a,b)=>b.ts-a.ts);
+  document.getElementById("anomaly-stats").innerHTML=[
+    {label:"Anomalies found",value:anoms.length,color:anoms.length?"var(--red)":undefined},
+    {label:"Affected sensors",value:new Set(anoms.map(r=>r.Sensor_ID)).size},
+    {label:"Anomaly rate",value:filteredData.length?((anoms.length/filteredData.length)*100).toFixed(2):"0",unit:"%"},
+  ].map(c=>`<div class="stat-card"><div class="stat-label">${c.label}</div><div class="stat-value" style="color:${c.color||"var(--text)"}">${c.value}<span class="stat-unit">${c.unit||""}</span></div></div>`).join("");
+  const st=sensorStats(filteredData);
+  const content=document.getElementById("anomaly-content");
+  if(!anoms.length){
+    content.innerHTML=`<div style="padding:24px;text-align:center"><i class="ti ti-circle-check" style="font-size:28px;color:var(--green);display:block;margin-bottom:8px"></i><div style="font-size:14px;font-weight:500;color:var(--green)">No anomalies detected</div><div style="font-size:12px;color:var(--text2);margin-top:4px">All readings are within normal range.</div></div>`;
+    return;
+  }
+  content.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Timestamp</th><th>Sensor</th><th>Depth</th><th class="r">Temperature</th><th class="r">Deviation</th></tr></thead><tbody>${
+    anoms.slice(0,60).map(r=>{
+      const ss=st.find(s=>s.id===r.Sensor_ID);const dev=ss?Math.abs(r.Temperature-ss.avg).toFixed(2):"—";
+      const i=sensorList.indexOf(r.Sensor_ID);
+      return `<tr class="anomaly-row"><td class="mono">${r.Timestamp}</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:${SENSOR_COLORS[i>=0?i:0]}"></span>${r.Sensor_ID}</span></td><td>${r.Depth_ft} ft</td><td class="r" style="color:#f07070;font-weight:500">${r.Temperature}°C</td><td class="r" style="color:#f07070">+${dev}°C</td></tr>`;
+    }).join("")
+  }</tbody></table>${anoms.length>60?`<div style="padding:8px 10px;font-size:11px;color:var(--text2)">${anoms.length-60} more anomalies not shown.</div>`:""}</div>`;
+}
+
+let tableDataCache=[];
+function renderDataTable(){
+  tableDataCache=[...filteredData].sort((a,b)=>b.ts-a.ts);
+  if(tableSearch){const q=tableSearch.toLowerCase();tableDataCache=tableDataCache.filter(r=>r.Sensor_ID.toLowerCase().includes(q)||String(r.Temperature).includes(q)||String(r.Depth_ft).includes(q)||r.Timestamp.includes(q));}
+  const total=tableDataCache.length;const totalPg=Math.max(1,Math.ceil(total/PAGE_SIZE));
+  if(tablePage>=totalPg)tablePage=0;
+  document.getElementById("data-sub").textContent=`${total.toLocaleString()} readings — search, sort, and export`;
+  document.getElementById("data-count").textContent=`${total.toLocaleString()} rows`;
+  document.getElementById("page-info").textContent=`Page ${tablePage+1} of ${totalPg}`;
+  document.getElementById("btn-prev").disabled=tablePage===0;
+  document.getElementById("btn-next").disabled=tablePage>=totalPg-1;
+  const pg=tableDataCache.slice(tablePage*PAGE_SIZE,(tablePage+1)*PAGE_SIZE);
+  document.getElementById("data-tbody").innerHTML=pg.map(r=>{
+    const i=sensorList.indexOf(r.Sensor_ID);
+    return `<tr${r.anomaly?' class="anomaly-row"':''}><td class="mono">${r.Timestamp}</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:2px;background:${SENSOR_COLORS[i>=0?i:0]}"></span>${r.Sensor_ID}</span></td><td>${r.Depth_ft} ft</td><td class="r" style="font-weight:500${r.anomaly?";color:#f07070":""}">${r.Temperature}°C</td><td>${r.anomaly?'<span style="font-size:11px;color:#f07070">⚠ Yes</span>':'<span style="color:var(--text3)">—</span>'}</td></tr>`;
+  }).join("");
+}
+
+// ── EVENT LISTENERS ──
+document.querySelectorAll(".btn-preset").forEach(btn=>btn.addEventListener("click",()=>{
+  document.querySelectorAll(".btn-preset").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");datePreset=parseInt(btn.dataset.days);applyFilters();
+}));
+document.getElementById("interval-sel").addEventListener("change",e=>{intervalMin=parseInt(e.target.value);applyFilters();});
+document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>{
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+  // re-render charts on tab switch (canvas size may have changed)
+  setTimeout(()=>{
+    const t=btn.dataset.tab;
+    if(t==="overview")renderOverviewChart();
+    if(t==="trends"){renderTrendsChart();renderAvgBarChart();}
+    if(t==="depth"){renderDepthChart();}
+    if(t==="stats")renderMinMaxChart();
+    if(t==="compare")renderCompare();
+  },50);
+}));
+document.getElementById("btn-all").addEventListener("click",()=>{
+  activeSensors=new Set(sensorList);
+  document.querySelectorAll("#sensor-checkboxes input[type=checkbox]").forEach(cb=>cb.checked=true);
+  applyFilters();
+});
+document.getElementById("btn-none").addEventListener("click",()=>{
+  activeSensors=new Set();
+  document.querySelectorAll("#sensor-checkboxes input[type=checkbox]").forEach(cb=>cb.checked=false);
+  applyFilters();
+});
+document.getElementById("depth-min").addEventListener("input",e=>{depthMin=parseFloat(e.target.value);document.getElementById("depth-min-val").textContent=depthMin;applyFilters();});
+document.getElementById("depth-max").addEventListener("input",e=>{depthMax=parseFloat(e.target.value);document.getElementById("depth-max-val").textContent=depthMax;applyFilters();});
+document.getElementById("btn-compare").addEventListener("click",()=>{compA=document.getElementById("comp-a").value;compB=document.getElementById("comp-b").value;renderCompare();});
+document.getElementById("table-search").addEventListener("input",e=>{tableSearch=e.target.value;tablePage=0;renderDataTable();});
+document.getElementById("btn-prev").addEventListener("click",()=>{if(tablePage>0){tablePage--;renderDataTable();}});
+document.getElementById("btn-next").addEventListener("click",()=>{const tot=Math.ceil(tableDataCache.length/PAGE_SIZE);if(tablePage<tot-1){tablePage++;renderDataTable();}});
+document.getElementById("btn-export-csv").addEventListener("click",()=>{
+  const csv=["Timestamp,Sensor_ID,Depth_ft,Temperature",...tableDataCache.map(r=>`${r.Timestamp},${r.Sensor_ID},${r.Depth_ft},${r.Temperature}`)].join("\n");
+  const a=document.createElement("a");a.href="data:text/csv,"+encodeURIComponent(csv);a.download="soil_data.csv";a.click();
+});
+// Upload
+function handleFiles(files){
+  const file=files[0];if(!file)return;
+  const msg=document.getElementById("upload-msg");
+  msg.style.color="var(--text2)";msg.textContent=`Reading ${file.name}…`;
+  const fr=new FileReader();
+  fr.onload=e=>{
+    try{const rows=parseCSV(e.target.result);if(!rows.length)throw new Error("No valid rows");
+      loadData(rows);msg.style.color="var(--green)";msg.textContent=`✓ ${rows.length.toLocaleString()} readings loaded`;
+    }catch(err){msg.style.color="var(--red)";msg.textContent=`Error: ${err.message}`;}
+  };fr.readAsText(file);
+}
+const fileInput=document.getElementById("file-input");
+fileInput.addEventListener("change",e=>handleFiles(e.target.files));
+["upload-area","upload-area-main"].forEach(id=>{
+  const el=document.getElementById(id);if(!el)return;
+  el.addEventListener("click",()=>fileInput.click());
+  el.addEventListener("dragover",e=>{e.preventDefault();el.classList.add("drag");});
+  el.addEventListener("dragleave",()=>el.classList.remove("drag"));
+  el.addEventListener("drop",e=>{e.preventDefault();el.classList.remove("drag");handleFiles(e.dataTransfer.files);});
+});
+
+// ── INIT ──
+loadData(generateDemo());
+</script>
+</body>
+</html>
